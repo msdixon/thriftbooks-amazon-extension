@@ -1,3 +1,12 @@
+/* global chrome */
+(function initBrowserCompat() {
+  // Firefox uses `browser`, Chrome uses `chrome`.
+  // This simple shim avoids needing a build step right now.
+  if (typeof globalThis.browser === "undefined" && typeof globalThis.chrome !== "undefined") {
+    globalThis.browser = globalThis.chrome;
+  }
+})();
+
 (async function main() {
   // Avoid double-injection on SPA-like navigations
   if (document.documentElement.dataset.tbInjected === "1") return;
