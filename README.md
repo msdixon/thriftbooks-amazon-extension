@@ -6,7 +6,10 @@ A cross-browser extension (Chrome + Firefox) that adds ThriftBooks search links 
 
 - **Cross-browser compatible**: Works on both Chrome and Firefox with a single codebase
 - **Smart ISBN detection**: Extracts ISBN-10 or ISBN-13 from Amazon product pages via JSON-LD and DOM parsing
-- **Clean UI injection**: Adds a subtle ThriftBooks link near the buy box
+- **Live price fetching**: Displays current ThriftBooks prices inline on Amazon pages (opt-in)
+- **Intelligent caching**: 24-hour cache to minimize network requests and improve performance
+- **Clean UI injection**: Adds a subtle ThriftBooks link with price near the buy box
+- **Permission-aware**: Optional ThriftBooks access - works in link-only mode if permission denied
 - **US-only for now**: Targets `amazon.com` (expandable to worldwide marketplaces)
 - **No build step required**: Pure JavaScript, no bundler needed
 
@@ -30,13 +33,16 @@ The extension uses a clever manifest configuration that works on both Chrome and
 
 1. **content_script.js** (runs on Amazon pages)
    - Extracts ISBN from Amazon's DOM/JSON-LD
+   - Shows loading state while fetching
    - Sends lookup request to background
-   - Injects ThriftBooks link UI
+   - Displays price and link in Amazon UI
 
 2. **background.js** (Chrome SW / Firefox doc-script)
    - Browser compatibility shim (`browser` API normalization)
+   - Permission management (optional ThriftBooks access)
+   - Price caching (chrome.storage.local, 24-hour TTL)
+   - ThriftBooks HTML fetching and parsing
    - ISBN normalization and validation
-   - ThriftBooks URL generation
    - Message handling between content script and background
 
 3. **providers/thriftbooks.js** (provider module)
@@ -44,7 +50,9 @@ The extension uses a clever manifest configuration that works on both Chrome and
    - Structured for easy addition of more providers later
 
 4. **ui/injected.css** (styling)
-   - Amazon-matched styling for seamless integration
+   - Amazon-matched color palette
+   - Loading spinner animation
+   - Price display with cached/confidence indicators
 
 ## Installation
 
@@ -65,6 +73,51 @@ The extension uses a clever manifest configuration that works on both Chrome and
 5. The extension will be loaded until you restart Firefox
 
 **Note**: For permanent installation in Firefox, you need to sign the extension through [addons.mozilla.org](https://addons.mozilla.org).
+
+## How Price Fetching Works
+
+### Permission Flow
+
+1. **First use**: When you load an Amazon book page, the extension requests optional permission to access ThriftBooks.com
+2. **User choice**:
+   - **Grant**: Extension fetches live prices and shows them inline
+   - **Deny**: Extension works in link-only mode (no prices, just the search link)
+3. **Subsequent uses**: Permission is remembered, no additional prompts
+
+### Price Fetching Process
+
+When permission is granted:
+
+1. **Loading state** (immediate): Shows spinner with "Checking ThriftBooks..."
+2. **Cache check** (< 1ms): Looks for cached price from last 24 hours
+3. **Live fetch** (if not cached, ~2-5 seconds):
+   - Fetches ThriftBooks search results page
+   - Parses HTML for ISBN match and price
+   - Uses proximity matching (ISBN near price in HTML)
+   - 8-second timeout with graceful fallback
+4. **Display**:
+   - **Price found**: Shows `$X.XX` with optional indicators
+   - **Cached**: Shows `(cached)` label
+   - **Low confidence**: Shows `~` symbol (fallback to first result)
+   - **Not found**: Shows "Price not available"
+
+### Caching Strategy
+
+- **Duration**: 24 hours
+- **Storage**: `chrome.storage.local` (per-ISBN key)
+- **Invalidation**: Automatic expiry after 24 hours
+- **Benefits**:
+  - Instant price display on repeat visits
+  - Reduced network load on ThriftBooks
+  - Works offline (if previously cached)
+
+### Privacy & Performance
+
+- **Opt-in**: ThriftBooks access is optional, not required
+- **No tracking**: No analytics, no user data collection
+- **Minimal data**: Only fetches ThriftBooks search results, no cookies
+- **Timeout protection**: 8-second max fetch time
+- **Graceful degradation**: Link-only mode if fetch fails
 
 ## Testing
 
@@ -128,12 +181,29 @@ thrift-on-amazon/
 - ISBN-13 is the modern standard and more globally unique
 - Falls back to ISBN-10 if only that is available
 
+**Why optional_host_permissions for ThriftBooks?**
+- Better privacy: users opt-in to cross-origin requests
+- Graceful degradation: link-only mode works without permission
+- Firefox handles optional permissions more smoothly than required
+
+**Why regex-based HTML parsing instead of DOM parsing?**
+- ThriftBooks search results structure can change
+- Regex with proximity matching is more resilient than CSS selectors
+- Avoids needing a full HTML parser in background script
+
+**Why 24-hour cache instead of real-time pricing?**
+- Book prices change slowly (typically weeks/months)
+- Reduces load on ThriftBooks servers
+- Improves user experience (instant display on repeat visits)
+- Still fresh enough for price comparison decisions
+
 ## Future Enhancements
 
-### Phase 1: Price Comparison
-- Fetch actual ThriftBooks prices (requires `optional_permissions` for cross-origin)
-- Display lowest price inline on Amazon page
-- Add confidence indicators (shipping, condition)
+### Phase 1: Price Comparison ✅ **COMPLETED**
+- ✅ Fetch actual ThriftBooks prices
+- ✅ Display inline on Amazon page with loading states
+- ✅ Confidence indicators (low-confidence warnings)
+- 🔲 Future: Add shipping cost and condition details
 
 ### Phase 2: Worldwide Support
 - Add `markets.json` mapping:
