@@ -25,14 +25,11 @@ async function handleLookup(message) {
   // Base response (link-only mode)
   const response = { ok: true, url, queryType };
 
-  // Try to fetch price if we have permissions
+  // Check if we have permission to fetch prices
   const hasPermission = await checkThriftBooksPermission();
   if (!hasPermission) {
-    // Request permission on first use
-    const granted = await requestThriftBooksPermission();
-    if (!granted) {
-      return response; // Return link-only if permission denied
-    }
+    // Permission denied - return link-only mode with flag
+    return { ...response, permissionDenied: true };
   }
 
   // Check cache first

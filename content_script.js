@@ -144,7 +144,7 @@ function injectLoadingState(isbn) {
 }
 
 function updateThriftbooksLink(container, resp, isbn) {
-  const { url, price, currency, cached, confidence } = resp;
+  const { url, price, currency, cached, confidence, permissionDenied } = resp;
 
   // Build price display
   let priceHtml = "";
@@ -153,6 +153,14 @@ function updateThriftbooksLink(container, resp, isbn) {
     const cacheIndicator = cached ? ' <span class="tb-cached">(cached)</span>' : "";
     const confidenceWarning = confidence === "low" ? ' <span class="tb-low-conf">~</span>' : "";
     priceHtml = `<div class="tb-price">${priceText}${confidenceWarning}${cacheIndicator}</div>`;
+  }
+
+  // Build status message
+  let statusHtml = "";
+  if (permissionDenied) {
+    statusHtml = ' • <button class="tb-enable-btn" data-isbn="' + escapeHtml(isbn) + '">Enable price checking</button>';
+  } else if (price === undefined) {
+    statusHtml = " • Price not available";
   }
 
   // Update container
@@ -166,11 +174,47 @@ function updateThriftbooksLink(container, resp, isbn) {
         ${priceHtml}
       </div>
       <div class="tb-sub">
-        ISBN: ${escapeHtml(isbn)}
-        ${price === undefined ? " • Price not available" : ""}
+        ISBN: ${escapeHtml(isbn)}${statusHtml}
       </div>
     </div>
   `;
+
+  // Add click handler for enable button if permission denied
+  if (permissionDenied) {
+    const enableBtn = container.querySelector(".tb-enable-btn");
+    if (enableBtn) {
+      enableBtn.addEventListener("click", async (e) => {
+        e.preventDefault();
+        const isbn = e.target.dataset.isbn;
+
+        // Request permission from background (which will trigger user gesture)
+        const granted = await browser.permissions.request({
+          origins: ["*://*.thriftbooks.com/*"]
+        });
+
+        if (granted) {
+          // Permission granted! Refetch with prices
+          container.innerHTML = `
+            <div class="tb-row">
+              <div class="tb-header">
+                <span class="tb-spinner"></span>
+                <span class="tb-link-text">Loading prices...</span>
+              </div>
+            </div>
+          `;
+
+          const resp = await browser.runtime.sendMessage({
+            type: "TB_LOOKUP",
+            payload: { isbn }
+          });
+
+          if (resp && resp.ok) {
+            updateThriftbooksLink(container, resp, isbn);
+          }
+        }
+      });
+    }
+  }
 }
 
 function escapeHtml(s) {

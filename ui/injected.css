@@ -92,3 +92,19 @@
     transform: rotate(360deg);
   }
 }
+
+/* Enable button */
+.tb-enable-btn {
+  background: none;
+  border: none;
+  color: #007185;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+  font-size: 12px;
+  font-family: inherit;
+}
+
+.tb-enable-btn:hover {
+  color: #c7511f;
+}
