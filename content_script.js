@@ -6,14 +6,24 @@
   const isbn = findIsbnOnPage();
   if (!isbn) return;
 
+  // Inject loading state immediately
+  const container = injectLoadingState(isbn);
+  if (!container) return;
+
+  // Fetch data from background
   const resp = await browser.runtime.sendMessage({
     type: "TB_LOOKUP",
     payload: { isbn }
   });
 
-  if (!resp || !resp.ok || !resp.url) return;
+  if (!resp || !resp.ok || !resp.url) {
+    // Remove loading state if fetch failed
+    container.remove();
+    return;
+  }
 
-  injectThriftbooksLink(resp.url, isbn);
+  // Update UI with result
+  updateThriftbooksLink(container, resp, isbn);
 })();
 
 function findIsbnOnPage() {
@@ -101,7 +111,7 @@ function extractIsbn(text) {
   return "";
 }
 
-function injectThriftbooksLink(url, isbn) {
+function injectLoadingState(isbn) {
   const anchorTarget =
     document.querySelector("#buybox") ||
     document.querySelector("#rightCol") ||
@@ -109,17 +119,49 @@ function injectThriftbooksLink(url, isbn) {
     document.body;
 
   const box = document.createElement("div");
-  box.className = "tb-box";
+  box.className = "tb-box tb-loading";
   box.innerHTML = `
     <div class="tb-row">
-      <a class="tb-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">
-        Find this book on ThriftBooks
-      </a>
-      <div class="tb-sub">ISBN detected: ${escapeHtml(isbn)}</div>
+      <div class="tb-header">
+        <span class="tb-spinner"></span>
+        <span class="tb-link-text">Checking ThriftBooks...</span>
+      </div>
+      <div class="tb-sub">ISBN: ${escapeHtml(isbn)}</div>
     </div>
   `;
 
   anchorTarget.prepend(box);
+  return box;
+}
+
+function updateThriftbooksLink(container, resp, isbn) {
+  const { url, price, currency, cached, confidence } = resp;
+
+  // Build price display
+  let priceHtml = "";
+  if (price !== undefined) {
+    const priceText = `${currency || "$"}${price.toFixed(2)}`;
+    const cacheIndicator = cached ? ' <span class="tb-cached">(cached)</span>' : "";
+    const confidenceWarning = confidence === "low" ? ' <span class="tb-low-conf">~</span>' : "";
+    priceHtml = `<div class="tb-price">${priceText}${confidenceWarning}${cacheIndicator}</div>`;
+  }
+
+  // Update container
+  container.className = "tb-box";
+  container.innerHTML = `
+    <div class="tb-row">
+      <div class="tb-header">
+        <a class="tb-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">
+          Find on ThriftBooks
+        </a>
+        ${priceHtml}
+      </div>
+      <div class="tb-sub">
+        ISBN: ${escapeHtml(isbn)}
+        ${price === undefined ? " • Price not available" : ""}
+      </div>
+    </div>
+  `;
 }
 
 function escapeHtml(s) {

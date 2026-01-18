@@ -5,19 +5,90 @@
   margin: 10px 0;
   background: #fff;
   font-family: Arial, sans-serif;
+  transition: border-color 0.2s;
+}
+
+.tb-box:hover {
+  border-color: #888c8c;
+}
+
+.tb-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tb-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .tb-link {
   font-weight: 700;
   text-decoration: none;
+  color: #007185;
+  flex: 1;
 }
 
 .tb-link:hover {
+  color: #c7511f;
   text-decoration: underline;
 }
 
+.tb-link-text {
+  font-weight: 700;
+  color: #565959;
+}
+
+.tb-price {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f1111;
+  white-space: nowrap;
+}
+
+.tb-cached {
+  font-size: 11px;
+  font-weight: 400;
+  color: #565959;
+  margin-left: 4px;
+}
+
+.tb-low-conf {
+  font-size: 14px;
+  color: #ff9900;
+  margin-left: 2px;
+  cursor: help;
+  title: "Price match confidence: low";
+}
+
 .tb-sub {
-  margin-top: 6px;
   font-size: 12px;
   color: #565959;
+  line-height: 1.4;
+}
+
+/* Loading state */
+.tb-loading {
+  opacity: 0.8;
+}
+
+.tb-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid #d5d9d9;
+  border-top-color: #ff9900;
+  border-radius: 50%;
+  animation: tb-spin 0.8s linear infinite;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+@keyframes tb-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
