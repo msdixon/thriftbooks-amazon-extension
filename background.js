@@ -159,7 +159,7 @@ async function fetchThriftBooksPrice(searchUrl, isbn) {
     }
 
     const html = await response.text();
-    return parseThriftBooksPrice(html, isbn);
+    return parseThriftBooksPrice(html, isbn, searchUrl);
   } catch (err) {
     if (err.name === "AbortError") {
       console.warn("ThriftBooks fetch timed out");
@@ -170,19 +170,15 @@ async function fetchThriftBooksPrice(searchUrl, isbn) {
   }
 }
 
-function parseThriftBooksPrice(html, isbn) {
-  // ThriftBooks search results have a specific structure
+function parseThriftBooksPrice(html, isbn, url) {
+  // ThriftBooks search/browse pages have prices we can extract
   // We're looking for the first book listing that matches our ISBN
 
-  // Strategy 1: Look for ISBN in data attributes or nearby text
-  // Strategy 2: Extract the first price from search results (assuming first result is best match)
+  // Strategy 1: Look for ISBN nearby price (high confidence)
+  // Strategy 2: Extract the first price from browse/search pages (low confidence)
 
   // Common price pattern: $X.XX or $XX.XX
   const priceRegex = /\$(\d+\.\d{2})/g;
-
-  // Try to find book cards/listings
-  // ThriftBooks uses class names like "SearchResults-item" or similar
-  // Since HTML structure can change, we'll use a robust regex approach
 
   // Look for ISBN nearby price (within 500 chars)
   const isbnNormalized = isbn.replace(/[^0-9X]/gi, "");
@@ -199,9 +195,9 @@ function parseThriftBooksPrice(html, isbn) {
     };
   }
 
-  // Fallback: Just get the first price from the page (less reliable)
-  // Only use if we're on a search results page (has "SearchResults" or "results" in HTML)
-  if (/search.*results|results.*search/i.test(html)) {
+  // Fallback: Get the first price from browse/search pages
+  // Check URL structure (more reliable than HTML content)
+  if (/thriftbooks\.com\/(browse|search)/i.test(url)) {
     const firstPrice = html.match(priceRegex);
     if (firstPrice && firstPrice[0]) {
       const price = parseFloat(firstPrice[0].replace("$", ""));
