@@ -49,21 +49,6 @@
   white-space: nowrap;
 }
 
-.tb-cached {
-  font-size: 11px;
-  font-weight: 400;
-  color: #565959;
-  margin-left: 4px;
-}
-
-.tb-low-conf {
-  font-size: 14px;
-  color: #ff9900;
-  margin-left: 2px;
-  cursor: help;
-  title: "Price match confidence: low";
-}
-
 .tb-sub {
   font-size: 12px;
   color: #565959;

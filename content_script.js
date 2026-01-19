@@ -144,15 +144,16 @@ function injectLoadingState(isbn) {
 }
 
 function updateThriftbooksLink(container, resp, isbn) {
-  const { url, price, currency, cached, confidence, permissionDenied } = resp;
+  const { url, price, currency, priceType, permissionDenied } = resp;
 
   // Build price display
   let priceHtml = "";
   if (price !== undefined) {
-    const priceText = `${currency || "$"}${price.toFixed(2)}`;
-    const cacheIndicator = cached ? ' <span class="tb-cached">(cached)</span>' : "";
-    const confidenceWarning = confidence === "low" ? ' <span class="tb-low-conf">~</span>' : "";
-    priceHtml = `<div class="tb-price">${priceText}${confidenceWarning}${cacheIndicator}</div>`;
+    const prefix = priceType === "from" ? "from " : "";
+    // Show $ for USD, otherwise show currency code
+    const currencySymbol = (currency === "USD" || !currency) ? "$" : currency;
+    const priceText = `${prefix}${currencySymbol}${price.toFixed(2)}`;
+    priceHtml = `<div class="tb-price">${priceText}</div>`;
   }
 
   // Build status message
@@ -161,6 +162,8 @@ function updateThriftbooksLink(container, resp, isbn) {
     statusHtml = ' • <button class="tb-enable-btn" data-isbn="' + escapeHtml(isbn) + '">Enable price checking</button>';
   } else if (price === undefined) {
     statusHtml = " • Price not available";
+  } else if (priceType === "from") {
+    statusHtml = " • Other editions available";
   }
 
   // Update container

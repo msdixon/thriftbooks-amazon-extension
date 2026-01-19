@@ -7,8 +7,7 @@
   }
 })();
 
-// Cache configuration
-const CACHE_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
+// Configuration
 const FETCH_TIMEOUT_MS = 8000; // 8 seconds
 
 async function handleLookup(message) {
@@ -32,18 +31,10 @@ async function handleLookup(message) {
     return { ...response, permissionDenied: true };
   }
 
-  // Check cache first
-  const cached = await getCachedPrice(query);
-  if (cached) {
-    return { ...response, price: cached.price, currency: cached.currency, cached: true };
-  }
-
   // Fetch live price
   try {
     const priceData = await fetchThriftBooksPrice(url, query);
     if (priceData) {
-      // Cache the result
-      await cachePrice(query, priceData);
       return { ...response, ...priceData };
     }
   } catch (err) {
@@ -102,42 +93,6 @@ async function requestThriftBooksPermission() {
   }
 }
 
-// Cache management
-async function getCachedPrice(query) {
-  try {
-    const key = `price_${query}`;
-    const result = await browser.storage.local.get(key);
-    if (!result[key]) return null;
-
-    const cached = result[key];
-    const age = Date.now() - cached.timestamp;
-    if (age > CACHE_DURATION_MS) {
-      // Expired, remove it
-      await browser.storage.local.remove(key);
-      return null;
-    }
-
-    return cached;
-  } catch (err) {
-    console.warn("Cache read failed:", err);
-    return null;
-  }
-}
-
-async function cachePrice(query, priceData) {
-  try {
-    const key = `price_${query}`;
-    await browser.storage.local.set({
-      [key]: {
-        ...priceData,
-        timestamp: Date.now()
-      }
-    });
-  } catch (err) {
-    console.warn("Cache write failed:", err);
-  }
-}
-
 // ThriftBooks price fetching
 async function fetchThriftBooksPrice(searchUrl, isbn) {
   try {
@@ -172,16 +127,13 @@ async function fetchThriftBooksPrice(searchUrl, isbn) {
 
 function parseThriftBooksPrice(html, isbn, url) {
   // ThriftBooks search/browse pages have prices we can extract
-  // We're looking for the first book listing that matches our ISBN
+  // Strategy 1: Exact ISBN match (highest confidence)
+  // Strategy 2: Work-level "from" price (multiple editions available)
+  // Strategy 3: vpitem global variable (if redirected to work page)
 
-  // Strategy 1: Look for ISBN nearby price (high confidence)
-  // Strategy 2: Extract the first price from browse/search pages (low confidence)
-
-  // Common price pattern: $X.XX or $XX.XX
-  const priceRegex = /\$(\d+\.\d{2})/g;
-
-  // Look for ISBN nearby price (within 500 chars)
   const isbnNormalized = isbn.replace(/[^0-9X]/gi, "");
+
+  // Strategy 1: Look for exact ISBN nearby price (within 500 chars)
   const isbnPattern = new RegExp(`${isbnNormalized}.{0,500}?\\$(\\d+\\.\\d{2})`, "i");
   const reversePattern = new RegExp(`\\$(\\d+\\.\\d{2}).{0,500}?${isbnNormalized}`, "i");
 
@@ -191,25 +143,37 @@ function parseThriftBooksPrice(html, isbn, url) {
     return {
       price: parseFloat(match[1]),
       currency: "USD",
-      found: true
+      priceType: "exact"
     };
   }
 
-  // Fallback: Get the first price from browse/search pages
-  // Check URL structure (more reliable than HTML content)
-  if (/thriftbooks\.com\/(browse|search)/i.test(url)) {
-    const firstPrice = html.match(priceRegex);
-    if (firstPrice && firstPrice[0]) {
-      const price = parseFloat(firstPrice[0].replace("$", ""));
-      // Sanity check: book prices are typically $1-$100
-      if (price >= 1 && price <= 100) {
-        return {
-          price,
-          currency: "USD",
-          found: true,
-          confidence: "low" // Mark as low confidence
-        };
-      }
+  // Strategy 2: Extract work-level "from" price
+  // Pattern: "See All X Editions from $XX.XX" or "from $XX.XX"
+  const fromPricePattern = /(?:editions?\s+)?from\s+\$(\d+\.\d{2})/i;
+  const fromMatch = html.match(fromPricePattern);
+
+  if (fromMatch && fromMatch[1]) {
+    return {
+      price: parseFloat(fromMatch[1]),
+      currency: "USD",
+      priceType: "from"
+    };
+  }
+
+  // Strategy 3: Extract vpitem.price from embedded JSON
+  // ThriftBooks embeds this on work pages when ISBN redirects
+  const vpitemPattern = /"price":\s*(\d+\.\d{2})/;
+  const vpitemMatch = html.match(vpitemPattern);
+
+  if (vpitemMatch && vpitemMatch[1]) {
+    const price = parseFloat(vpitemMatch[1]);
+    // Sanity check: book prices are typically $1-$100
+    if (price >= 1 && price <= 100) {
+      return {
+        price,
+        currency: "USD",
+        priceType: "from"
+      };
     }
   }
 

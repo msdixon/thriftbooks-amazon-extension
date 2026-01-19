@@ -1,11 +1,12 @@
 {
   "manifest_version": 3,
   "name": "ThriftBooks Link on Amazon",
-  "version": "0.2.0",
+  "version": "0.2.4",
   "description": "Adds a ThriftBooks search link with live pricing on Amazon book pages when an ISBN match is found.",
-  "permissions": ["storage"],
-  "host_permissions": ["*://*.amazon.com/*"],
-  "optional_host_permissions": ["*://*.thriftbooks.com/*"],
+  "host_permissions": [
+    "*://*.amazon.com/*",
+    "*://*.thriftbooks.com/*"
+  ],
   "background": {
     "service_worker": "background.js"
   },
