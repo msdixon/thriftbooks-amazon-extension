@@ -18,6 +18,18 @@
   gap: 6px;
 }
 
+.tb-retailer {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tb-retailer + .tb-retailer {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid #e7e9e9;
+}
+
 .tb-header {
   display: flex;
   align-items: center;

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "ThriftBooks Link on Amazon",
-  "version": "0.2.4",
-  "description": "Adds a ThriftBooks search link with live pricing on Amazon book pages when an ISBN match is found.",
+  "name": "Used Book Links on Amazon",
+  "version": "0.3.0",
+  "description": "Adds ThriftBooks (with live pricing), World of Books, and Bookshop.org search links to Amazon book pages when an ISBN match is found.",
   "host_permissions": [
     "*://*.amazon.com/*",
     "*://*.thriftbooks.com/*"

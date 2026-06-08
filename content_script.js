@@ -25,14 +25,14 @@
     payload: { isbn }
   });
 
-  if (!resp || !resp.ok || !resp.url) {
+  if (!resp || !resp.ok || !Array.isArray(resp.links) || resp.links.length === 0) {
     // Remove loading state if fetch failed
     container.remove();
     return;
   }
 
   // Update UI with result
-  updateThriftbooksLink(container, resp, isbn);
+  updateRetailerLinks(container, resp.links, isbn);
 })();
 
 function findIsbnOnPage() {
@@ -133,7 +133,7 @@ function injectLoadingState(isbn) {
     <div class="tb-row">
       <div class="tb-header">
         <span class="tb-spinner"></span>
-        <span class="tb-link-text">Checking ThriftBooks...</span>
+        <span class="tb-link-text">Checking used book retailers...</span>
       </div>
       <div class="tb-sub">ISBN: ${escapeHtml(isbn)}</div>
     </div>
@@ -143,81 +143,72 @@ function injectLoadingState(isbn) {
   return box;
 }
 
-function updateThriftbooksLink(container, resp, isbn) {
-  const { url, price, currency, priceType, permissionDenied } = resp;
+function updateRetailerLinks(container, links, isbn) {
+  container.className = "tb-box";
+  container.innerHTML = `
+    <div class="tb-row">
+      <div class="tb-sub">ISBN: ${escapeHtml(isbn)}</div>
+      ${links.map((link) => renderRetailerRow(link, isbn)).join("")}
+    </div>
+  `;
 
-  // Build price display
+  // Wire up "enable price checking" buttons (currently only ThriftBooks supports this)
+  for (const link of links) {
+    if (!link.permissionDenied) continue;
+    const enableBtn = container.querySelector(`.tb-enable-btn[data-retailer="${link.id}"]`);
+    if (!enableBtn) continue;
+
+    enableBtn.addEventListener("click", async (e) => {
+      e.preventDefault();
+
+      const granted = await browser.permissions.request({
+        origins: ["*://*.thriftbooks.com/*"]
+      });
+
+      if (granted) {
+        const resp = await browser.runtime.sendMessage({
+          type: "TB_LOOKUP",
+          payload: { isbn }
+        });
+
+        if (resp && resp.ok && Array.isArray(resp.links)) {
+          updateRetailerLinks(container, resp.links, isbn);
+        }
+      }
+    });
+  }
+}
+
+function renderRetailerRow(link, isbn) {
+  const { id, name, url, price, currency, priceType, permissionDenied } = link;
+
   let priceHtml = "";
   if (price !== undefined) {
     const prefix = priceType === "from" ? "from " : "";
-    // Show $ for USD, otherwise show currency code
     const currencySymbol = (currency === "USD" || !currency) ? "$" : currency;
     const priceText = `${prefix}${currencySymbol}${price.toFixed(2)}`;
     priceHtml = `<div class="tb-price">${priceText}</div>`;
   }
 
-  // Build status message
   let statusHtml = "";
   if (permissionDenied) {
-    statusHtml = ' • <button class="tb-enable-btn" data-isbn="' + escapeHtml(isbn) + '">Enable price checking</button>';
-  } else if (price === undefined) {
-    statusHtml = " • Price not available";
+    statusHtml = '<button class="tb-enable-btn" data-retailer="' + escapeHtml(id) + '">Enable price checking</button>';
   } else if (priceType === "from") {
-    statusHtml = " • Other editions available";
+    statusHtml = "Other editions available";
   }
+  const statusRow = statusHtml ? `<div class="tb-sub">${statusHtml}</div>` : "";
 
-  // Update container
-  container.className = "tb-box";
-  container.innerHTML = `
-    <div class="tb-row">
+  return `
+    <div class="tb-retailer">
       <div class="tb-header">
         <a class="tb-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">
-          Find on ThriftBooks
+          Find on ${escapeHtml(name)}
         </a>
         ${priceHtml}
       </div>
-      <div class="tb-sub">
-        ISBN: ${escapeHtml(isbn)}${statusHtml}
-      </div>
+      ${statusRow}
     </div>
   `;
-
-  // Add click handler for enable button if permission denied
-  if (permissionDenied) {
-    const enableBtn = container.querySelector(".tb-enable-btn");
-    if (enableBtn) {
-      enableBtn.addEventListener("click", async (e) => {
-        e.preventDefault();
-        const isbn = e.target.dataset.isbn;
-
-        // Request permission from background (which will trigger user gesture)
-        const granted = await browser.permissions.request({
-          origins: ["*://*.thriftbooks.com/*"]
-        });
-
-        if (granted) {
-          // Permission granted! Refetch with prices
-          container.innerHTML = `
-            <div class="tb-row">
-              <div class="tb-header">
-                <span class="tb-spinner"></span>
-                <span class="tb-link-text">Loading prices...</span>
-              </div>
-            </div>
-          `;
-
-          const resp = await browser.runtime.sendMessage({
-            type: "TB_LOOKUP",
-            payload: { isbn }
-          });
-
-          if (resp && resp.ok) {
-            updateThriftbooksLink(container, resp, isbn);
-          }
-        }
-      });
-    }
-  }
 }
 
 function escapeHtml(s) {

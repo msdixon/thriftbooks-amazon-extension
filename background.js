@@ -18,31 +18,39 @@ async function handleLookup(message) {
   const query = normalizeIsbn(isbn) || buildFallbackQuery(title, author);
   if (!query) return { ok: false, reason: "no_query" };
 
-  const url = thriftbooksSearchUrl(query);
   const queryType = normalizeIsbn(isbn) ? "isbn" : "text";
 
-  // Base response (link-only mode)
-  const response = { ok: true, url, queryType };
+  const links = [
+    await buildThriftBooksLink(query),
+    { id: "worldofbooks", name: "World of Books", url: worldofbooksSearchUrl(query) },
+    { id: "bookshop", name: "Bookshop.org", url: bookshopSearchUrl(query) }
+  ];
+
+  return { ok: true, queryType, links };
+}
+
+async function buildThriftBooksLink(query) {
+  const url = thriftbooksSearchUrl(query);
+  const link = { id: "thriftbooks", name: "ThriftBooks", url };
 
   // Check if we have permission to fetch prices
   const hasPermission = await checkThriftBooksPermission();
   if (!hasPermission) {
-    // Permission denied - return link-only mode with flag
-    return { ...response, permissionDenied: true };
+    return { ...link, permissionDenied: true };
   }
 
   // Fetch live price
   try {
     const priceData = await fetchThriftBooksPrice(url, query);
     if (priceData) {
-      return { ...response, ...priceData };
+      return { ...link, ...priceData };
     }
   } catch (err) {
     console.warn("ThriftBooks price fetch failed:", err);
     // Return link-only on error
   }
 
-  return response;
+  return link;
 }
 
 function normalizeIsbn(isbn) {
@@ -67,6 +75,20 @@ function thriftbooksSearchUrl(query) {
   const base = "https://www.thriftbooks.com/browse/";
   const url = new URL(base);
   url.searchParams.set("b.search", query);
+  return url.toString();
+}
+
+function worldofbooksSearchUrl(query) {
+  const base = "https://www.worldofbooks.com/en-gb/search";
+  const url = new URL(base);
+  url.searchParams.set("q", query);
+  return url.toString();
+}
+
+function bookshopSearchUrl(query) {
+  const base = "https://bookshop.org/search";
+  const url = new URL(base);
+  url.searchParams.set("keywords", query);
   return url.toString();
 }
 
