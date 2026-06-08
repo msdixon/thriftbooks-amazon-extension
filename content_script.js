@@ -19,11 +19,24 @@
   const container = injectLoadingState(isbn);
   if (!container) return;
 
-  // Fetch data from background
-  const resp = await browser.runtime.sendMessage({
-    type: "TB_LOOKUP",
-    payload: { isbn }
-  });
+  // Fetch data from background (retry once if service worker was idle)
+  let resp;
+  try {
+    resp = await browser.runtime.sendMessage({ type: "TB_LOOKUP", payload: { isbn } });
+  } catch (err) {
+    if (err?.message?.includes("Receiving end does not exist")) {
+      await new Promise(r => setTimeout(r, 300));
+      try {
+        resp = await browser.runtime.sendMessage({ type: "TB_LOOKUP", payload: { isbn } });
+      } catch {
+        container.remove();
+        return;
+      }
+    } else {
+      container.remove();
+      return;
+    }
+  }
 
   if (!resp || !resp.ok || !Array.isArray(resp.links) || resp.links.length === 0) {
     // Remove loading state if fetch failed
