@@ -3,7 +3,8 @@
 ## Pre-flight Check
 
 - [ ] All files committed to git
-- [ ] Version number updated in `manifest.json`
+- [ ] Version number updated in `manifest.json` and `manifest.firefox.json`
+- [ ] `node scripts/check-manifests.js` passes (enable the pre-commit hook once with `git config core.hooksPath .githooks`)
 - [ ] README reflects current feature set
 - [ ] No debug `console.log()` statements in production code
 
@@ -36,7 +37,7 @@
 1. Open Firefox → `about:debugging#/runtime/this-firefox`
 2. Click **Load Temporary Add-on...**
 3. Navigate to the extension directory
-4. Select `manifest.json`
+4. Select `manifest.firefox.json` (Firefox needs `background.scripts`; `manifest.json` is Chrome-only)
 5. Extension loads until Firefox restart
 
 **Tip**: Use [web-ext](https://extensionworkshop.com/documentation/develop/getting-started-with-web-ext/) for auto-reload:
@@ -126,7 +127,7 @@ mv ../thrift-on-amazon-0.1.0.zip ../thrift-on-amazon-0.1.0.xpi
 |-------|--------|---------|-----|
 | "browser is not defined" | ✓ | N/A | Check browser shim in `background.js:1-7` |
 | Service worker not loading | ✓ | N/A | Verify `manifest.json` → `background.service_worker` |
-| Background script not loading | N/A | ✓ | Verify `manifest.json` → `background.scripts` |
+| Background script not loading | N/A | ✓ | Verify `manifest.firefox.json` → `background.scripts` |
 | ISBN not detected | ✓ | ✓ | Check console for errors, verify Amazon page structure |
 | Link not injecting | ✓ | ✓ | Inspect DOM for `.tb-box`, check CSS load |
 
