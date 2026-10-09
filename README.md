@@ -17,17 +17,12 @@ A cross-browser extension (Chrome + Firefox) that adds ThriftBooks search links 
 
 ### Manifest V3 Cross-Browser Strategy
 
-The extension uses a clever manifest configuration that works on both Chrome and Firefox:
+Chrome and Firefox need different `background` keys, so there are two manifests:
 
-```json
-"background": {
-  "service_worker": "background.js",
-  "scripts": ["background.js"]
-}
-```
+- `manifest.json` (Chrome/Arc/Edge): `"background": {"service_worker": "background.js"}`. Chrome MV3 rejects `background.scripts` with "requires manifest version of 2 or lower".
+- `manifest.firefox.json` (Firefox): `"background": {"scripts": ["background.js"]}`. Firefox MV3 uses event pages, not service workers.
 
-- **Chrome MV3**: Uses `service_worker` for background processing
-- **Firefox MV3**: Falls back to `scripts` (document-style event pages) since Firefox doesn't yet support background service workers
+To run in Firefox, copy `manifest.firefox.json` over `manifest.json` (or `web-ext run --source-dir` a copy of the repo with that swap); don't commit the swap.
 
 ### Components
 
